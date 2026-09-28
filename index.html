@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SamGemini</title>
+<meta name="description" content="Personal website of SamGemini.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ground: #F3F5F7;
+    --surface: #FFFFFF;
+    --ink: #16202A;
+    --muted: #5B6875;
+    --line: #D9DFE5;
+    --accent: #2F5BEA;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0F151B;
+      --surface: #161E26;
+      --ink: #E6EBF0;
+      --muted: #93A1AE;
+      --line: #26313C;
+      --accent: #7C9BFF;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0F151B;
+    --surface: #161E26;
+    --ink: #E6EBF0;
+    --muted: #93A1AE;
+    --line: #26313C;
+    --accent: #7C9BFF;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font: 400 1.0625rem/1.65 var(--body);
+    padding-inline: 20px;
+  }
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding-block: 4.5rem 3rem;
+    display: grid;
+    gap: 3.25rem;
+  }
+  a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  a:hover { text-decoration-thickness: 2px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  .label {
+    font: 400 0.75rem/1 var(--mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 1rem;
+  }
+
+  header { display: grid; gap: 1rem; }
+  h1 {
+    font: 700 clamp(2.5rem, 8vw, 3.75rem)/1.02 var(--display);
+    letter-spacing: -0.03em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lede { font-size: 1.25rem; line-height: 1.5; color: var(--ink); margin: 0; max-width: 34rem; }
+  .status {
+    font: 400 0.8125rem/1.4 var(--mono);
+    color: var(--muted);
+    margin: 0;
+  }
+  .status b { color: var(--accent); font-weight: 400; }
+
+  h2 { font: 500 1.375rem/1.25 var(--display); margin: 0 0 0.75rem; letter-spacing: -0.01em; }
+  section p { margin: 0 0 1rem; color: var(--ink); }
+  section p:last-child { margin-bottom: 0; }
+
+  .projects { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .projects li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.25rem 1rem;
+    padding-block: 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .projects a { font-weight: 600; }
+  .projects .meta { font: 400 0.8125rem/1.6 var(--mono); color: var(--muted); }
+  .projects .desc { grid-column: 1 / -1; color: var(--muted); margin: 0; }
+
+  .links { display: flex; flex-wrap: wrap; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
+  .links a {
+    display: inline-block;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .links a:hover { border-color: var(--accent); color: var(--accent); }
+
+  footer { font: 400 0.8125rem/1.5 var(--mono); color: var(--muted); border-top: 1px solid var(--line); padding-top: 1.25rem; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="label">Personal site</p>
+    <h1>Hi, I'm SamGemini.</h1>
+    <p class="lede">I build things on the web and keep my experiments in public. This page is a first test version; the real bio goes here soon.</p>
+    <p class="status"><b>●</b> v0.1 · plain HTML &amp; CSS · deployed from <code>main</code></p>
+  </header>
+
+  <section>
+    <h2>About</h2>
+    <p>Replace this paragraph with a few sentences about who you are, what you work on, and what you're interested in right now.</p>
+    <p>A second short paragraph can cover background, current role, or what you're learning.</p>
+  </section>
+
+  <section>
+    <h2>Projects</h2>
+    <ul class="projects">
+      <li>
+        <a href="https://github.com/SamGemini/personal-website">personal-website</a>
+        <span class="meta">HTML · CSS</span>
+        <p class="desc">The source for this site, published with GitHub Pages.</p>
+      </li>
+      <li>
+        <a href="https://github.com/SamGemini/experiments">experiments</a>
+        <span class="meta">sandbox</span>
+        <p class="desc">A scratch repo for trying out ideas.</p>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Elsewhere</h2>
+    <ul class="links">
+      <li><a href="https://github.com/SamGemini">GitHub</a></li>
+    </ul>
+  </section>
+
+  <footer>© 2026 SamGemini · Last updated 2026-09-28</footer>
+</main>
+</body>
+</html>
