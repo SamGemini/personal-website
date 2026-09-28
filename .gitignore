@@ -1,0 +1,9 @@
+private/
+[Pp]rivate/
+*.[Pp][Dd][Ff]
+/*.json
+tmp/
+node_modules/
+data/*.tmp-*
+data/*.new-*
+data/*.new
