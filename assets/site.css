@@ -189,12 +189,21 @@
   .meta .m + .m::before { content: "·"; margin-right: 0.6rem; color: var(--muted); }
 
   .item-body { padding: 0 0.9rem 1.1rem 3.1rem; display: grid; gap: 1rem; }
-  .fields { display: grid; grid-template-columns: 8.5rem 1fr; gap: 0.75rem 1rem; margin: 0; }
+  .fields { display: grid; gap: 0.75rem; margin: 0; }
+  .field { display: grid; grid-template-columns: 8.5rem 1fr; gap: 1rem; }
   .fields dt { padding-top: 0.2rem; }
   .fields dd { margin: 0; font-size: 0.9375rem; color: var(--ink); }
-  .fields .review { grid-column: 1 / -1; background: var(--warn-soft); border-radius: 7px; padding: 0.7rem 0.85rem; display: grid; gap: 0.3rem; }
-  .fields .review .label { color: var(--warn); }
-  .fields .review p { margin: 0; font-size: 0.875rem; }
+  .review { background: var(--warn-soft); border-radius: 7px; padding: 0.7rem 0.85rem; display: grid; gap: 0.3rem; }
+  .review .label { color: var(--warn); }
+  .review p { margin: 0; font-size: 0.875rem; }
+
+  /* Wide windows: the deal book gets a wider page and each company's fields flow in two columns. */
+  @media (min-width: 1100px) {
+    body[data-coll="bluetorch"] .wrap { max-width: 76rem; }
+    body[data-coll="bluetorch"] .fields { display: block; column-count: 2; column-gap: 2.5rem; }
+    body[data-coll="bluetorch"] .field { display: block; break-inside: avoid; margin-bottom: 1rem; }
+    body[data-coll="bluetorch"] .field dt { padding-top: 0; margin-bottom: 0.25rem; }
+  }
   .descriptor { margin: 0; font-size: 0.875rem; color: var(--ink-2); }
   .sources { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; margin: 0; padding: 0; }
   .sources a, .sources span {
@@ -246,8 +255,7 @@
   @media (max-width: 560px) {
     .wrap { padding-block: 1.5rem 3rem; }
     .item-body { padding: 0 0.75rem 1rem 0.75rem; }
-    .fields { grid-template-columns: 1fr; gap: 0.2rem; }
-    .fields dd { margin-bottom: 0.6rem; }
+    .field { grid-template-columns: 1fr; gap: 0.2rem; }
     .reader h1 { font-size: 1.45rem; }
     .toolbar { position: static; }
   }

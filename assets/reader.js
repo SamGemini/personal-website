@@ -183,14 +183,13 @@
   }
 
   function renderCompany(c) {
-    const rows = c.fields.map(f => {
-      if (f.label === "Review Note") {
-        return `<div class="review"><span class="label">Review note · unapplied reviewer corrections</span><p>${esc(f.text)}</p></div>`;
-      }
-      return `<dt class="label">${esc(f.label)}</dt><dd>${esc(f.text)}</dd>`;
-    }).join("");
+    const fields = c.fields.filter(f => f.label !== "Review Note").map(f =>
+      `<div class="field"><dt class="label">${esc(f.label)}</dt><dd>${esc(f.text)}</dd></div>`).join("");
+    const review = c.fields.filter(f => f.label === "Review Note").map(f =>
+      `<div class="review"><span class="label">Review note · unapplied reviewer corrections</span><p>${esc(f.text)}</p></div>`).join("");
     return `<p class="descriptor">${esc(c.descriptor)}</p>
-      <dl class="fields">${rows}</dl>
+      <dl class="fields">${fields}</dl>
+      ${review}
       <div><div class="label" style="margin-bottom:.4rem">Sources</div>${sourcesHtml(c.sources)}</div>`;
   }
 
