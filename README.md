@@ -20,7 +20,7 @@ https://samgemini.github.io/personal-website/
 ```sh
 SITE_PASSWORD='…' node tools/encrypt.mjs --decrypt     # restore private/*.json from data/*.enc
 python3 tools/parse_bluetorch.py "Blue Torch Deal Book.pdf" /tmp/bluetorch.json
-python3 tools/parse_moneystuff.py "Money Stuff.pdf" /tmp/moneystuff.json
+python3 tools/parse_moneystuff.py "Money Stuff.pdf" /tmp/moneystuff.json --headings private/moneystuff-headings.json
 python3 tools/pack.py /tmp/bluetorch.json /tmp/moneystuff.json private
 SITE_PASSWORD='…' node tools/encrypt.mjs               # private/*.json -> data/*.enc
 ```
