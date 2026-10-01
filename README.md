@@ -5,7 +5,11 @@ https://samgemini.github.io/personal-website/
 
 - `index.html`: home page (links to each reader)
 - `bluetorch/`, `moneystuff/`: reader pages. Each section can be checked off and has a notes box.
-  Checkmarks and notes are saved in the browser; Export/Import moves them between devices.
+  Checkmarks and notes are saved in the browser. On https://samgemini.fly.dev/ (which mirrors this
+  site) they also sync across devices: the browser derives a sync key and a server-side id from the
+  content key (`vault.js`) and keeps one AES-GCM-encrypted copy on the server via `/api/desk-sync/:id`,
+  so the server never sees them. Each item's newest change wins. On GitHub Pages there is no sync API,
+  so progress stays in the browser and Export/Import moves it between devices.
 - `assets/`: shared CSS and JS. `vault.js` handles the password and decryption.
 - `data/*.enc`: the content, encrypted with AES-256-GCM. `data/key.json` holds the content key,
   wrapped with a key derived from the password (PBKDF2-SHA256, 600,000 iterations).

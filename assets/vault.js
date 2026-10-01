@@ -40,14 +40,14 @@
     } catch (e) {}
     try { sessionStorage.removeItem(SESSION_FLAG); } catch (e) {}
   }
-  async function remember(key, kid, persist) {
+  async function remember(key, sync, kid, persist) {
     let id = REC;
     if (!persist) {
       const token = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, "0")).join("");
       try { sessionStorage.setItem(SESSION_FLAG, token); } catch (e) { return; }
       id = "session:" + token;
     }
-    try { await tx("readwrite", s => s.put({ key, kid, at: Date.now() }, id)); } catch (e) { /* stays unlocked for this page only */ }
+    try { await tx("readwrite", s => s.put({ key, sync, kid, at: Date.now() }, id)); } catch (e) { /* stays unlocked for this page only */ }
   }
   async function savedKey(kid) {
     // Purge session-only keys from browser sessions that have ended.
@@ -63,8 +63,8 @@
       if (!id) continue;
       const rec = await getRecord(id);
       if (!rec) continue;
-      if (rec.key instanceof CryptoKey && rec.kid === kid) return rec.key;
-      await tx("readwrite", s => s.delete(id)).catch(() => {});   // stale (password changed) or malformed
+      if (rec.key instanceof CryptoKey && rec.sync && rec.sync.key instanceof CryptoKey && rec.kid === kid) return rec;
+      await tx("readwrite", s => s.delete(id)).catch(() => {});   // stale (password changed), malformed, or saved before sync existed
     }
     return null;
   }
@@ -90,8 +90,19 @@
       throw err;
     }
     const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
+    const sync = await syncKeys(raw);
     raw.fill(0);
-    return key;
+    return { key, sync };
+  }
+
+  // Progress sync (reader.js): a separate key plus a server-side id, both derived from the content key,
+  // so the server stores only ciphertext and only someone with the password can find or read it.
+  async function syncKeys(raw) {
+    const base = await crypto.subtle.importKey("raw", raw, "HKDF", false, ["deriveKey", "deriveBits"]);
+    const p = info => ({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(32), info: enc.encode("reading-desk " + info) });
+    const key = await crypto.subtle.deriveKey(p("sync key v1"), base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    const bits = new Uint8Array(await crypto.subtle.deriveBits(p("sync id v1"), base, 256));
+    return { key, id: Array.from(bits, b => b.toString(16).padStart(2, "0")).join("") };
   }
 
   function loader(key, kid) {
@@ -151,10 +162,10 @@
       btn.disabled = true; btn.textContent = "Unlocking…"; err.textContent = "";
       try {
         meta = meta || await fetchMeta();
-        const key = await unlock(meta, pw.value);
+        const { key, sync } = await unlock(meta, pw.value);
         const persist = mount.querySelector("#remember").checked;
-        await start(key, loader(key, meta.kid));
-        await remember(key, meta.kid, persist);
+        await start(key, loader(key, meta.kid), sync);
+        await remember(key, sync, meta.kid, persist);
         if (channel) channel.postMessage("unlock");
       } catch (ex) {
         if (!mount.contains(form)) { errorScreen(mount, start, ex.message || String(ex)); return; }
@@ -165,7 +176,7 @@
     });
   }
 
-  // Shows the gate until a working key is available, then calls start(key, load).
+  // Shows the gate until a working key is available, then calls start(key, load, sync).
   async function gate(mount, start) {
     if (!(window.crypto && crypto.subtle && window.DecompressionStream && window.indexedDB)) {
       mount.innerHTML = `<div class="gate"><h1>Reading Desk</h1><p>This browser can't open the site. Use a current version of Chrome, Safari, Firefox or Edge.</p></div>`;
@@ -174,10 +185,10 @@
     let meta;
     try { meta = await fetchMeta(); }
     catch (e) { errorScreen(mount, start, (e.message || String(e)) + " Check your connection."); return; }
-    const key = await savedKey(meta.kid);
-    if (!key) { showForm(mount, start, meta); return; }
+    const rec = await savedKey(meta.kid);
+    if (!rec) { showForm(mount, start, meta); return; }
     try {
-      await start(key, loader(key, meta.kid));
+      await start(rec.key, loader(rec.key, meta.kid), rec.sync);
     } catch (e) {
       if (e.badKey) { await forget(); showForm(mount, start, meta); return; }
       errorScreen(mount, start, e.message || String(e));

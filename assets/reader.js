@@ -25,9 +25,8 @@
     get(coll, id) { return (this.state[coll] || {})[id] || { read: false, note: "" }; },
     set(coll, id, patch) {
       this.state[coll] = this.state[coll] || {};
-      const next = { ...this.get(coll, id), ...patch, at: new Date().toISOString() };
-      if (!next.read && !(next.note || "").trim()) delete this.state[coll][id];
-      else this.state[coll][id] = next;
+      // A cleared item stays as {read:false, note:"", at} so the un-check reaches other devices.
+      this.state[coll][id] = { ...this.get(coll, id), ...patch, at: new Date().toISOString() };
       this.save(coll);
       this.listeners.forEach(fn => fn(coll, id));
     },
@@ -36,10 +35,102 @@
         localStorage.setItem(this.key(coll), JSON.stringify(this.state[coll] || {}));
         this.ok = true;
       } catch (e) { this.ok = false; }
+      Sync.schedule();
     },
     ok: true,
   };
   const readCount = coll => Object.entries(Store.state[coll] || {}).filter(([id, v]) => validId(coll, id) && v && v.read).length;
+
+  // ------------------------------------------------------------------ sync across devices
+  // Where the desk is served with its sync API (samgemini.fly.dev), the server keeps one encrypted copy
+  // of this progress, under an id and key the browser derives from the desk's content key (vault.js).
+  // The server never sees checkmarks or notes. Each item's newest change wins. Elsewhere (GitHub Pages)
+  // the API is missing and progress stays in this browser only.
+  const ROOT = document.documentElement.dataset.root || "./";
+  const utf8 = new TextEncoder();
+  const AD = utf8.encode("desk-sync");
+  const toB64 = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  const fromB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  const Sync = {
+    on: false, v: 0, remote: {}, timer: null, queue: Promise.resolve(),
+    async init(sync) {
+      if (!sync || !sync.key || !sync.id || this.url) return;
+      this.key = sync.key;
+      this.url = ROOT + "api/desk-sync/" + sync.id;
+      try { await this.pull(); } catch (e) { return; }   // no sync API on this host
+      this.on = true;
+      Store.listeners.forEach(fn => fn(COLL, null));   // redraw with the "syncs across devices" note
+      this.run(() => this.push());
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") this.run(() => this.pull()); });
+    },
+    run(fn) { this.queue = this.queue.then(fn).catch(() => {}); return this.queue; },
+    schedule() {
+      if (!this.on) return;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.run(() => this.push()), 800);
+    },
+    snapshot() { const p = {}; Object.keys(KNOWN).forEach(c => p[c] = { ...Store.load(c) }); return p; },
+    // True when this browser has an item the server copy lacks or has an older version of.
+    ahead() {
+      return Object.keys(KNOWN).some(c => Object.entries(Store.load(c)).some(([id, v]) => {
+        const r = (this.remote[c] || {})[id];
+        return validId(c, id) && v && (!r || String(v.at || "") > String(r.at || ""));
+      }));
+    },
+    // Newest change per item wins; returns true if anything here changed.
+    merge(remote) {
+      let any = false;
+      for (const coll of Object.keys(KNOWN)) {
+        const items = remote[coll];
+        if (!items || typeof items !== "object") continue;
+        const mine = Store.load(coll);
+        let dirty = false;
+        for (const [id, v] of Object.entries(items)) {
+          if (!validId(coll, id) || !v || typeof v !== "object") continue;
+          const cur = mine[id];
+          if (cur && String(cur.at || "") >= String(v.at || "")) continue;
+          mine[id] = { read: v.read === true, note: typeof v.note === "string" ? v.note : "", at: typeof v.at === "string" ? v.at : undefined };
+          dirty = true;
+        }
+        if (dirty) { Store.save(coll); Store.listeners.forEach(fn => fn(coll, null)); any = true; }
+      }
+      return any;
+    },
+    async decode(rec) {
+      if (!rec || !rec.blob) return {};
+      const buf = fromB64(rec.blob);
+      const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12), additionalData: AD }, this.key, buf.slice(12));
+      const data = JSON.parse(new TextDecoder().decode(plain));
+      return data && data.progress && typeof data.progress === "object" ? data.progress : {};
+    },
+    async encode(progress) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: AD }, this.key, utf8.encode(JSON.stringify({ v: 1, progress }))));
+      const out = new Uint8Array(12 + ct.length);
+      out.set(iv); out.set(ct, 12);
+      return toB64(out);
+    },
+    async accept(rec) {
+      const remote = await this.decode(rec);
+      this.v = rec.v || 0;
+      this.remote = remote;
+      this.merge(remote);
+    },
+    async pull() {
+      const res = await fetch(this.url, { cache: "no-store" });
+      if (!res.ok || !/json/.test(res.headers.get("content-type") || "")) throw new Error("no sync API here");
+      await this.accept(await res.json());
+    },
+    async push(tries = 3) {
+      if (!this.ahead()) return;
+      const progress = this.snapshot();
+      const res = await fetch(this.url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ v: this.v, blob: await this.encode(progress) }) });
+      if (res.status === 409 && tries > 1) { await this.accept(await res.json()); return this.push(tries - 1); }   // another device saved first
+      if (!res.ok) throw new Error("sync save failed: HTTP " + res.status);
+      this.v = (await res.json()).v;
+      this.remote = progress;
+    },
+  };
 
   // Another tab changed progress: pick it up.
   window.addEventListener("storage", e => {
@@ -116,7 +207,7 @@
   }
 
   // ------------------------------------------------------------------ home
-  async function startHome(key, load) {
+  async function startHome(key, load, sync) {
     const manifest = await load("manifest");
     const colls = manifest.collections;
     // Entries with a `url` are links to outside apps (e.g. Leer): no reader page, no read count.
@@ -134,6 +225,7 @@
     };
     Store.listeners.add(() => draw());
     draw();
+    Sync.init(sync);
   }
 
   // ------------------------------------------------------------------ reader data
@@ -235,7 +327,7 @@
   const view = { filter: "all", tier: "all", q: "", open: null };
   let R = null; // { data, items, index }
 
-  async function startReader(key, load) {
+  async function startReader(key, load, sync) {
     app.innerHTML = `<div class="loading">Decrypting…</div>`;
     const data = await load(COLL);
     Store.load(COLL);
@@ -245,6 +337,7 @@
     app.innerHTML = readerShell(data);
     bindReader();
     drawList();
+    Sync.init(sync);
   }
 
   function chartsHtml(charts) {
@@ -383,7 +476,7 @@
 
   function saveNote(ta) {
     Store.set(COLL, ta.dataset.note, { note: ta.value });
-    setSaveState(ta.dataset.note, Store.ok ? "Saved in this browser" : "Couldn't save: this browser is blocking storage");
+    setSaveState(ta.dataset.note, !Store.ok ? "Couldn't save: this browser is blocking storage" : Sync.on ? "Saved" : "Saved in this browser");
   }
   function setSaveState(id, text) {
     const el = app.querySelector(`[data-save="${sel(id)}"]`);
@@ -491,9 +584,10 @@
     const r = R.items.filter(it => Store.get(COLL, it.id).read).length;
     app.querySelector("[data-read]").textContent = r;
     app.querySelector("[data-bar]").style.width = (total ? (100 * r / total) : 0) + "%";
-    app.querySelector("[data-store]").textContent = Store.ok
-      ? "Checkmarks and notes are saved in this browser. Use Export and Import to move them to another device."
-      : "This browser is blocking storage, so checkmarks and notes won't be kept after you leave.";
+    app.querySelector("[data-store]").textContent = !Store.ok
+      ? "This browser is blocking storage, so checkmarks and notes won't be kept after you leave."
+      : Sync.on ? "Checkmarks and notes sync across your devices."
+      : "Checkmarks and notes are saved in this browser. Use Export and Import to move them to another device.";
   }
 
   function onStoreChange(coll, id) {
