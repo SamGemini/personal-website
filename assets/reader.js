@@ -119,16 +119,18 @@
   async function startHome(key, load) {
     const manifest = await load("manifest");
     const colls = manifest.collections;
-    colls.forEach(c => Store.load(c.id));
+    // Entries with a `url` are links to outside apps (e.g. Leer): no reader page, no read count.
+    const readers = colls.filter(c => !safeUrl(c.url));
+    readers.forEach(c => Store.load(c.id));
     const draw = () => {
       app.className = "wrap home";
       app.innerHTML = `<div class="topline"><h1 style="margin:0">Reading Desk</h1><button class="linkbtn" data-lock>Lock</button></div>
-        <ul class="shelf" style="margin-top:2rem">${colls.map(c => `<li><a href="${esc(/^[a-z0-9-]+\/$/.test(c.path) ? c.path : "./")}"><span class="t">${esc(c.title)}</span>
-          <span class="s">${esc(c.blurb)} · <span class="num">${readCount(c.id)}/${esc(c.total)}</span> read</span>
-          <span class="go" aria-hidden="true">→</span></a></li>`).join("")}</ul>
+        <ul class="shelf" style="margin-top:2rem">${colls.map(c => { const ext = safeUrl(c.url); return `<li><a href="${esc(ext || (/^[a-z0-9-]+\/$/.test(c.path) ? c.path : "./"))}"${ext ? ' rel="noopener noreferrer"' : ""}><span class="t">${esc(c.title)}</span>
+          <span class="s">${esc(c.blurb)}${ext ? "" : ` · <span class="num">${readCount(c.id)}/${esc(c.total)}</span> read`}</span>
+          <span class="go" aria-hidden="true">${ext ? "↗" : "→"}</span></a></li>`; }).join("")}</ul>
         <div style="margin-top:1.5rem">${backupHtml()}</div>`;
       app.querySelector("[data-lock]").addEventListener("click", () => Vault.lock());
-      bindBackup(app, colls.map(c => c.id));
+      bindBackup(app, readers.map(c => c.id));
     };
     Store.listeners.add(() => draw());
     draw();

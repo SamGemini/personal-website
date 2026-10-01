@@ -28,6 +28,19 @@ SITE_PASSWORD='…' node tools/encrypt.mjs               # private/*.json -> dat
 A new collection needs its JSON in `private/`, an entry in `private/manifest.json`, a page folder
 like `bluetorch/`, and a matching branch in `assets/reader.js`.
 
+## Links to outside apps
+
+A home-page card can link to another site instead of a reader page (e.g. Leer, the reading
+app hosted on Fly.io). The card lives in the encrypted manifest, so the address is only visible
+after unlocking:
+
+```sh
+SITE_PASSWORD='…' node tools/encrypt.mjs --set-link leer "Leer" "Spanish reading practice" https://leer-9b19de37.fly.dev/
+```
+
+Running it again with the same id updates the card. It also updates `private/manifest.json` when
+that folder is present, so a later full encrypt keeps the card.
+
 ## Changing the password
 
 ```sh

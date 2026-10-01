@@ -3,6 +3,7 @@
 //   SITE_PASSWORD='…' node tools/encrypt.mjs                  encrypt private/*.json -> data/*.enc
 //   SITE_PASSWORD='…' node tools/encrypt.mjs --decrypt        restore private/*.json from data/*.enc
 //   SITE_PASSWORD='old' NEW_SITE_PASSWORD='new' node tools/encrypt.mjs --change-password
+//   SITE_PASSWORD='…' node tools/encrypt.mjs --set-link <id> "<title>" "<blurb>" https://…
 //
 // Scheme: a random 256-bit content key (DEK) encrypts every file with AES-256-GCM
 // (gzip first, file name as associated data, fresh random IV each time). The DEK is stored in
@@ -117,6 +118,28 @@ if (process.argv.includes("--change-password")) {
   for (const [tmp, dest] of staged) fs.renameSync(tmp, dest);
   fs.renameSync(KEY_FILE + ".new", KEY_FILE);
   console.log("password changed and content key replaced; browsers that stayed unlocked must unlock again");
+  process.exit(0);
+}
+
+// Add or update a home-page card that links to an outside app, straight in data/manifest.enc
+// (no plaintext written). Also updates private/manifest.json when it exists, so a later full
+// encrypt from private/ keeps the card.
+const linkAt = process.argv.indexOf("--set-link");
+if (linkAt !== -1) {
+  const [id, title, blurb, url] = process.argv.slice(linkAt + 1);
+  if (!/^[a-z0-9-]+$/.test(id || "") || !title || !blurb || !/^https:\/\/\S+$/.test(url || ""))
+    fail('Usage: node tools/encrypt.mjs --set-link <id> "<title>" "<blurb>" https://…');
+  const entry = { id, title, blurb, url };
+  const upsert = m => {
+    const i = m.collections.findIndex(c => c.id === id);
+    if (i === -1) m.collections.push(entry); else m.collections[i] = entry;
+    return m;
+  };
+  const manifest = upsert(JSON.parse(await decryptFile(key, "manifest")));
+  writeAtomic(path.join(DATA, "manifest.enc"), await encryptBytes(key, "manifest", JSON.stringify(manifest)));
+  const priv = path.join(PRIVATE, "manifest.json");
+  if (fs.existsSync(priv)) writeAtomic(priv, JSON.stringify(upsert(JSON.parse(fs.readFileSync(priv, "utf8"))), null, 1) + "\n");
+  console.log("home page cards: " + manifest.collections.map(c => c.title).join(", "));
   process.exit(0);
 }
 
